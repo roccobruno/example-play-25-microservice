@@ -16,16 +16,22 @@
 
 package uk.gov.hmrc.exampleplay25microservice.controllers
 
+import play.api.libs.json.Json
 import uk.gov.hmrc.play.microservice.controller.BaseController
 import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext._
 import play.api.mvc._
+
 import scala.concurrent.Future
 
 object MicroserviceHelloWorld extends MicroserviceHelloWorld
 
 trait MicroserviceHelloWorld extends BaseController {
 
+	private implicit val responseWriter = Json.writes[Response]
+
 	def hello() = Action.async { implicit request =>
-		Future.successful(Ok("Hello world"))
+		Future.successful(Ok(Json.toJson(Response("Hello world"))))
 	}
 }
+
+case class Response(message: String)
