@@ -17,7 +17,7 @@ private object AppDependencies {
   private val microserviceBootstrapVersion = "4.4.0"
   private val playAuthVersion = "3.4.0"
   private val playHealthVersion = "1.1.0"
-  private val playJsonLoggerVersion = "2.1.1"  
+  private val playJsonLoggerVersion = "2.1.1"
   private val playUrlBindersVersion = "1.1.0"
   private val playConfigVersion = "2.1.0"
   private val domainVersion = "3.7.0"
@@ -63,7 +63,8 @@ private object AppDependencies {
         "uk.gov.hmrc" %% "hmrctest" % hmrcTestVersion % scope,
         "org.scalatest" %% "scalatest" % scalaTestVersion % scope,
         "org.pegdown" % "pegdown" % pegdownVersion % scope,
-        "com.typesafe.play" %% "play-test" % PlayVersion.current % scope
+        "com.typesafe.play" %% "play-test" % PlayVersion.current % scope,
+        "org.scalatestplus" %% "play" % "1.2.0" % scope
       )
     }.test
   }
