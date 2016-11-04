@@ -16,16 +16,22 @@
 
 package uk.gov.hmrc.exampleplay25microservice
 
+import com.kenshoo.play.metrics.MetricsFilter
 import com.typesafe.config.Config
-import play.api.{Application, Configuration, Play}
+import play.api._
 import uk.gov.hmrc.play.audit.filters.AuditFilter
 import uk.gov.hmrc.play.auth.controllers.AuthParamsControllerConfig
 import uk.gov.hmrc.play.config.{AppName, ControllerConfig, RunMode}
 import uk.gov.hmrc.play.http.logging.filters.LoggingFilter
-import uk.gov.hmrc.play.microservice.bootstrap.DefaultMicroserviceGlobal
+import uk.gov.hmrc.play.microservice.bootstrap.{DefaultMicroserviceGlobal, JsonErrorHandling}
 import uk.gov.hmrc.play.auth.microservice.filters.AuthorisationFilter
 import net.ceedubs.ficus.Ficus._
-import uk.gov.hmrc.play.filters.MicroserviceFilterSupport
+import org.slf4j.MDC
+import play.api.mvc.{EssentialAction, EssentialFilter, Filters}
+import uk.gov.hmrc.play.audit.http.config.ErrorAuditingSettings
+import uk.gov.hmrc.play.filters.{MicroserviceFilterSupport, NoCacheFilter, RecoveryFilter}
+import uk.gov.hmrc.play.graphite.GraphiteConfig
+import uk.gov.hmrc.play.microservice.bootstrap.Routing.RemovingOfTrailingSlashes
 
 
 object ControllerConfiguration extends ControllerConfig {
@@ -51,14 +57,60 @@ object MicroserviceAuthFilter extends AuthorisationFilter with MicroserviceFilte
   override def controllerNeedsAuth(controllerName: String): Boolean = ControllerConfiguration.paramsForController(controllerName).needsAuth
 }
 
-object MicroserviceGlobal extends DefaultMicroserviceGlobal with RunMode {
-  override val auditConnector = MicroserviceAuditConnector
+trait MicroserviceFiltersTest extends MicroserviceFilterSupport {
 
-  override def microserviceMetricsConfig(implicit app: Application): Option[Configuration] = app.configuration.getConfig(s"microservice.metrics")
+  def loggingFilter: LoggingFilter
 
-  override val loggingFilter = MicroserviceLoggingFilter
+  def microserviceAuditFilter: AuditFilter
 
-  override val microserviceAuditFilter = MicroserviceAuditFilter
+  def metricsFilter: MetricsFilter = Play.current.injector.instanceOf[MetricsFilter]
 
-  override val authFilter = Some(MicroserviceAuthFilter)
+  def authFilter: Option[EssentialFilter]
+
+  protected lazy val defaultMicroserviceFilters: Seq[EssentialFilter] = Seq(
+    //Some(metricsFilter),
+    Some(microserviceAuditFilter),
+    Some(loggingFilter),
+    authFilter,
+    Some(NoCacheFilter),
+    Some(RecoveryFilter)).flatten
+
+  def microserviceFilters: Seq[EssentialFilter] = defaultMicroserviceFilters
+}
+
+object MicroserviceGlobal
+//  extends DefaultMicroserviceGlobal
+//  with RunMode
+    extends GlobalSettings
+  with GraphiteConfig
+  with RemovingOfTrailingSlashes
+  with JsonErrorHandling
+  with ErrorAuditingSettings
+  with MicroserviceFiltersTest
+   {
+
+  lazy val appName = Play.current.configuration.getString("appName").getOrElse("APP NAME NOT SET")
+  lazy val loggerDateFormat: Option[String] = Play.current.configuration.getString("logger.json.dateformat")
+
+    override val auditConnector = MicroserviceAuditConnector
+
+    override def microserviceMetricsConfig(implicit app: Application): Option[Configuration] = app.configuration.getConfig(s"microservice.metrics")
+
+    override val loggingFilter = MicroserviceLoggingFilter
+
+    override val microserviceAuditFilter = MicroserviceAuditFilter
+
+    override val authFilter = Some(MicroserviceAuthFilter)
+
+  override def onStart(app: Application) {
+    Logger.info(s"Starting microservice : $appName : in mode : ${app.mode}")
+    MDC.put("appName", appName)
+    loggerDateFormat.foreach(str => MDC.put("logger.json.dateformat", str))
+    super.onStart(app)
+  }
+
+  override def doFilter(a: EssentialAction): EssentialAction = {
+    Filters(super.doFilter(a), microserviceFilters: _*)
+  }
+
 }

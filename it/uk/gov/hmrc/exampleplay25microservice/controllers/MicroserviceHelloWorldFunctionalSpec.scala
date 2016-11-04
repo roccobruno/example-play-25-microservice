@@ -8,7 +8,7 @@ class MicroserviceHelloWorldFunctionalSpec extends PlaySpec with OneServerPerSui
   "hello world" should {
 
     "return a JSON message" in {
-      (await(wsUrl("/example-play-25-microservice/hello-world").get()).json \ "message").as[String] must be ("Hello world")
+      (await(wsUrl("/example-play-25-microservice/hello-world").get()).json \ "message").as[String] must be("Hello world")
     }
 
   }
